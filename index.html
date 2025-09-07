@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRENDMAX Digital Agency</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-color: #00ffc8;
+        }
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #0d0d1a;
+            color: #d1d5db;
+        }
+        .neon-text {
+            color: var(--neon-color);
+            text-shadow: 0 0 5px var(--neon-color), 0 0 10px var(--neon-color), 0 0 20px var(--neon-color), 0 0 40px var(--neon-color);
+        }
+        .neon-border {
+            border: 2px solid var(--neon-color);
+            box-shadow: 0 0 5px var(--neon-color), 0 0 10px var(--neon-color), 0 0 20px var(--neon-color);
+        }
+        .neon-button {
+            background-color: transparent;
+            border: 2px solid var(--neon-color);
+            color: var(--neon-color);
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 0 5px var(--neon-color), 0 0 10px var(--neon-color);
+        }
+        .neon-button:hover {
+            background-color: var(--neon-color);
+            color: #0d0d1a;
+            box-shadow: 0 0 10px var(--neon-color), 0 0 20px var(--neon-color), 0 0 40px var(--neon-color);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #0d0d1a 0%, #1a1a33 100%);
+        }
+        .page-transition {
+            transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+        }
+        .hidden-page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transform: translateY(20px);
+            pointer-events: none;
+            display: none;
+        }
+        .active-page {
+            position: relative;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+            display: block;
+        }
+        .neon-glow {
+            animation: neon-glow 1.5s infinite alternate;
+        }
+        @keyframes neon-glow {
+            0% { box-shadow: 0 0 5px var(--neon-color); }
+            100% { box-shadow: 0 0 10px var(--neon-color), 0 0 20px var(--neon-color); }
+        }
+    </style>
+</head>
+<body class="bg-[#0d0d1a] text-gray-300">
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, addDoc, onSnapshot, query, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-storage.js";
+
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : '';
+        let auth, db, userId;
+
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+        
+        // Experts management
+        function setupExpertsListener() {
+            const expertsRef = collection(db, `artifacts/${appId}/public/data/experts`);
+            onSnapshot(expertsRef, (snapshot) => {
+                const experts = [];
+                snapshot.forEach(doc => {
+                    experts.push({ id: doc.id, ...doc.data() });
+                });
+                renderExperts(experts);
+            }, (error) => {
+                console.error("Error fetching experts:", error);
+            });
+        }
+
+        async function addExpert(expertData) {
+            try {
+                const expertsRef = collection(db, `artifacts/${appId}/public/data/experts`);
+                await addDoc(expertsRef, expertData);
+                console.log("Expert added successfully.");
+            } catch (e) {
+                console.error("Error adding expert:", e);
+            }
+        }
+
+        async function deleteExpert(expertId) {
+            try {
+                const expertDocRef = doc(db, `artifacts/${appId}/public/data/experts`, expertId);
+                await deleteDoc(expertDocRef);
+                console.log("Expert deleted successfully.");
+            } catch (e) {
+                console.error("Error deleting expert:", e);
+            }
+        }
+
+        function renderExperts(experts) {
+            const expertsContainer = document.getElementById('experts-container');
+            if (!expertsContainer) return;
+            expertsContainer.innerHTML = '';
+            experts.forEach(expert => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-900 rounded-lg p-6 flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300 neon-border';
+                card.innerHTML = `
+                    <img src="${expert.image}" alt="${expert.name}" class="w-32 h-32 rounded-full mb-4 object-cover neon-glow">
+                    <h3 class="text-xl font-bold mb-1">${expert.name}</h3>
+                    <p class="text-sm text-gray-400 mb-2">${expert.role}</p>
+                    <p class="text-xs text-gray-500">Age: ${expert.age} | Exp: ${expert.experience} yrs</p>
+                    <p class="text-xs text-gray-500">Mobile: ${expert.mobile}</p>
+                    <p class="text-xs text-gray-500">Email: ${expert.email}</p>
+                `;
+                expertsContainer.appendChild(card);
+            });
+
+            // Populate admin expert list
+            const adminExpertsList = document.getElementById('admin-experts-list');
+            if (adminExpertsList) {
+                adminExpertsList.innerHTML = '';
+                experts.forEach(expert => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center py-2 border-b border-gray-700';
+                    li.innerHTML = `
+                        <span>${expert.name} - ${expert.role}</span>
+                        <button onclick="window.deleteExpert('${expert.id}')" class="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded-full transition-colors duration-300">Delete</button>
+                    `;
+                    adminExpertsList.appendChild(li);
+                });
+            }
+        }
+        
+        // Showcase management
+        function setupShowcaseListener() {
+            const showcaseRef = collection(db, `artifacts/${appId}/public/data/showcase`);
+            onSnapshot(showcaseRef, (snapshot) => {
+                const showcaseItems = [];
+                snapshot.forEach(doc => {
+                    showcaseItems.push({ id: doc.id, ...doc.data() });
+                });
+                renderShowcaseItems(showcaseItems);
+            }, (error) => {
+                console.error("Error fetching showcase items:", error);
+            });
+        }
+
+        async function addShowcaseItem(itemData) {
+            try {
+                const showcaseRef = collection(db, `artifacts/${appId}/public/data/showcase`);
+                await addDoc(showcaseRef, itemData);
+                console.log("Showcase item added successfully.");
+            } catch (e) {
+                console.error("Error adding showcase item:", e);
+            }
+        }
+        
+        async function deleteShowcaseItem(itemId) {
+            try {
+                const itemDocRef = doc(db, `artifacts/${appId}/public/data/showcase`, itemId);
+                await deleteDoc(itemDocRef);
+                console.log("Showcase item deleted successfully.");
+            } catch (e) {
+                console.error("Error deleting showcase item:", e);
+            }
+        }
+
+        function renderShowcaseItems(items) {
+            const showcaseContainer = document.getElementById('showcase-container');
+            if (!showcaseContainer) return;
+            showcaseContainer.innerHTML = '';
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-900 p-6 rounded-lg shadow-lg neon-border';
+                card.innerHTML = `
+                    <img src="${item.imageUrl}" alt="${item.title}" class="w-full rounded mb-4">
+                    <h3 class="text-xl font-bold">${item.title}</h3>
+                    <p class="text-sm text-gray-400">${item.description}</p>
+                `;
+                showcaseContainer.appendChild(card);
+            });
+            
+            // Populate admin showcase list for deletion
+            const adminShowcaseList = document.getElementById('admin-showcase-list');
+            if (adminShowcaseList) {
+                adminShowcaseList.innerHTML = '';
+                items.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center py-2 border-b border-gray-700';
+                    li.innerHTML = `
+                        <span>${item.title}</span>
+                        <button onclick="window.deleteShowcaseItem('${item.id}')" class="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded-full transition-colors duration-300">Delete</button>
+                    `;
+                    adminShowcaseList.appendChild(li);
+                });
+            }
+        }
+
+        // Chatroom management
+        function setupChatListener() {
+            const chatRef = collection(db, `artifacts/${appId}/public/data/chat`);
+            const q = query(chatRef);
+            onSnapshot(q, (snapshot) => {
+                const messages = [];
+                snapshot.forEach(doc => {
+                    messages.push(doc.data());
+                });
+                renderMessages(messages);
+            }, (error) => {
+                console.error("Error fetching chat messages:", error);
+            });
+        }
+
+        async function sendMessage(messageText) {
+            try {
+                const chatRef = collection(db, `artifacts/${appId}/public/data/chat`);
+                await addDoc(chatRef, {
+                    senderId: userId,
+                    message: messageText,
+                    timestamp: new Date()
+                });
+                console.log("Message sent successfully.");
+            } catch (e) {
+                console.error("Error sending message:", e);
+            }
+        }
+
+        function renderMessages(messages) {
+            const chatContainer = document.getElementById('chatroom-messages');
+            if (!chatContainer) return;
+
+            // Sort messages by timestamp before rendering
+            messages.sort((a, b) => a.timestamp.toDate() - b.timestamp.toDate());
+
+            chatContainer.innerHTML = '';
+            messages.forEach(msg => {
+                const msgElement = document.createElement('div');
+                const isUserMessage = msg.senderId === userId;
+                msgElement.className = `p-3 rounded-lg max-w-lg mb-2 ${isUserMessage ? 'bg-indigo-600 ml-auto' : 'bg-gray-700'}`;
+                msgElement.textContent = msg.message;
+                chatContainer.appendChild(msgElement);
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Initialize Firebase and set up listeners
+        (async function initApp() {
+            try {
+                // Sign in with the provided custom token if available, otherwise sign in anonymously
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                // Get the user ID after successful authentication
+                userId = auth.currentUser.uid;
+                console.log("Firebase authenticated successfully. User ID:", userId);
+                document.getElementById('user-id-display').textContent = `Your User ID: ${userId}`;
+
+                // Set up real-time listeners for public data
+                setupExpertsListener();
+                setupChatListener();
+                setupShowcaseListener();
+
+            } catch (error) {
+                console.error("Firebase authentication error:", error);
+            }
+        })();
+    </script>
+
+    <!-- Main Content Container -->
+    <div class="min-h-screen gradient-bg relative overflow-hidden">
+        
+        <!-- Navbar -->
+        <header class="sticky top-0 z-50 p-4 lg:p-6 bg-[#1a1a33] bg-opacity-80 backdrop-blur-sm shadow-xl">
+            <nav class="container mx-auto flex justify-between items-center">
+                <a href="#" class="h-10 w-auto">
+                    <img src="https://placehold.co/200x50/1A1A33/00ffc8?text=TRENDMAX" alt="Trendmax Logo" class="h-full w-auto">
+                </a>
+                <div class="hidden md:flex space-x-6 text-sm">
+                    <button onclick="showPage('home')" class="hover:text-white transition-colors duration-300">Home</button>
+                    <button onclick="showPage('experts')" class="hover:text-white transition-colors duration-300">Our Experts</button>
+                    <button onclick="showPage('showcase')" class="hover:text-white transition-colors duration-300">Showcase</button>
+                    <button onclick="showPage('reviews')" class="hover:text-white transition-colors duration-300">Reviews</button>
+                    <button onclick="showPage('apply')" class="hover:text-white transition-colors duration-300">Apply for Job</button>
+                    <button onclick="showPage('project')" class="hover:text-white transition-colors duration-300">Make a Project</button>
+                    <button onclick="showPage('admin-panel')" class="hover:text-white transition-colors duration-300">Admin Login</button>
+                    <button onclick="showPage('chatroom')" class="hover:text-white transition-colors duration-300">Member Chat</button>
+                </div>
+                <button id="mobile-menu-btn" class="md:hidden text-2xl">
+                    <i class="fas fa-bars text-white"></i>
+                </button>
+            </nav>
+            <div id="mobile-menu" class="hidden md:hidden absolute top-full left-0 w-full bg-[#1a1a33] bg-opacity-90 backdrop-blur-sm">
+                <button onclick="showPage('home')" class="block w-full py-2 px-4 text-left hover:bg-gray-700">Home</button>
+                <button onclick="showPage('experts')" class="block w-full py-2 px-4 text-left hover:bg-gray-700">Our Experts</button>
+                <button onclick="showPage('showcase')" class="block w-full py-2 px-4 text-left hover:bg-gray-700">Showcase</button>
+                <button onclick="showPage('reviews')" class="block w-full py-2 px-4 text-left hover:bg-gray-700">Reviews</button>
+                <button onclick="showPage('apply')" class="block w-full py-2 px-4 text-left hover:bg-gray-700">Apply for Job</button>
+                <button onclick="showPage('project')" class="block w-full py-2 px-4 text-left hover:bg-gray-700">Make a Project</button>
+                <button onclick="showPage('admin-panel')" class="block w-full py-2 px-4 text-left hover:bg-gray-700">Admin Login</button>
+                <button onclick="showPage('chatroom')" class="block w-full py-2 px-4 text-left hover:bg-gray-700">Member Chat</button>
+            </div>
+        </header>
+
+        <!-- Home Page -->
+        <section id="home" class="page-transition active-page min-h-screen flex items-center justify-center p-8 text-center">
+            <div class="max-w-4xl mx-auto">
+                <h1 class="text-5xl md:text-7xl font-bold neon-text mb-4 animate-pulse">WELCOME TO TRENDMAX</h1>
+                <p class="text-xl md:text-2xl text-gray-400 mb-12">TrendMax Works to Grow Businesses</p>
+                <div class="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-8">
+                    <button onclick="showPage('customer-details')" class="neon-button px-6 py-3 rounded-full text-lg font-semibold uppercase">Fill Customer Details</button>
+                    <button onclick="showPage('experts')" class="neon-button px-6 py-3 rounded-full text-lg font-semibold uppercase">Our 25 Experts</button>
+                    <button onclick="showPage('apply')" class="neon-button px-6 py-3 rounded-full text-lg font-semibold uppercase">Apply for Job</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Customer Details Page -->
+        <section id="customer-details" class="page-transition hidden-page min-h-screen flex items-center justify-center p-8">
+            <div class="bg-gray-900 bg-opacity-70 p-8 rounded-xl shadow-2xl neon-border max-w-lg w-full">
+                <h2 class="text-3xl font-bold neon-text mb-6 text-center">Customer Details</h2>
+                <form id="customer-form" class="space-y-6">
+                    <div>
+                        <label for="c-name" class="block mb-2">Name</label>
+                        <input type="text" id="c-name" name="name" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                    </div>
+                    <div>
+                        <label for="c-mobile" class="block mb-2">Mobile</label>
+                        <input type="tel" id="c-mobile" name="mobile" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                    </div>
+                    <div>
+                        <label for="c-email" class="block mb-2">Email</label>
+                        <input type="email" id="c-email" name="email" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                    </div>
+                    <div>
+                        <label for="c-business" class="block mb-2">Business Details</label>
+                        <textarea id="c-business" name="businessDetails" rows="4" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required></textarea>
+                    </div>
+                    <button type="submit" class="neon-button w-full py-3 rounded-lg font-semibold uppercase">Submit Details</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Our 25 Experts Page -->
+        <section id="experts" class="page-transition hidden-page min-h-screen p-8">
+            <div class="container mx-auto">
+                <h2 class="text-4xl md:text-5xl font-bold neon-text text-center mb-12">OUR 25 EXPERTS</h2>
+                <div id="experts-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                    <!-- Experts will be dynamically loaded here by Firebase -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Panel Page (Hidden by default) -->
+        <section id="admin-panel" class="page-transition hidden-page min-h-screen flex items-center justify-center p-8">
+            <div id="admin-login" class="bg-gray-900 bg-opacity-70 p-8 rounded-xl shadow-2xl neon-border max-w-lg w-full text-center">
+                <h2 class="text-3xl font-bold neon-text mb-6">Admin Login</h2>
+                <form id="admin-login-form">
+                    <input type="password" id="admin-password" placeholder="Enter password" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                    <button type="submit" class="neon-button w-full py-3 rounded-lg font-semibold uppercase">Login</button>
+                </form>
+                <div id="admin-login-message" class="mt-4 text-red-400"></div>
+            </div>
+
+            <div id="admin-dashboard" class="hidden bg-gray-900 bg-opacity-70 p-8 rounded-xl shadow-2xl neon-border max-w-3xl w-full">
+                <h2 class="text-3xl font-bold neon-text mb-6 text-center">Admin Dashboard</h2>
+                
+                <!-- Add Expert Form -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-bold mb-4 neon-text">Add New Expert</h3>
+                    <form id="add-expert-form" class="space-y-4">
+                        <input type="text" id="expert-name" placeholder="Name" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <input type="tel" id="expert-mobile" placeholder="Mobile" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <input type="email" id="expert-email" placeholder="Email" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <input type="url" id="expert-image" placeholder="Profile Image URL" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <input type="number" id="expert-age" placeholder="Age" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <input type="number" id="expert-experience" placeholder="Experience (years)" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <input type="text" id="expert-role" placeholder="Role/Position" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <button type="submit" class="neon-button w-full py-3 rounded-lg font-semibold uppercase">Add Expert</button>
+                    </form>
+                </div>
+                
+                <!-- Add Showcase Item Form -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-bold mb-4 neon-text">Add Showcase Item</h3>
+                    <form id="add-showcase-form" class="space-y-4">
+                        <input type="text" id="showcase-title" placeholder="Project Title" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <input type="url" id="showcase-image" placeholder="Image URL (e.g., from an image hosting service)" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <textarea id="showcase-description" placeholder="Project Description" rows="4" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required></textarea>
+                        <button type="submit" class="neon-button w-full py-3 rounded-lg font-semibold uppercase">Add Project to Showcase</button>
+                    </form>
+                </div>
+                
+                <!-- Delete Expert List -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-bold mb-4 neon-text">Delete Expert</h3>
+                    <ul id="admin-experts-list" class="space-y-2">
+                        <!-- Experts to delete will be populated here -->
+                    </ul>
+                </div>
+                
+                <!-- Delete Showcase List -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-bold mb-4 neon-text">Delete Showcase Item</h3>
+                    <ul id="admin-showcase-list" class="space-y-2">
+                        <!-- Showcase items to delete will be populated here -->
+                    </ul>
+                </div>
+
+                <!-- Add Song URL -->
+                <div>
+                    <h3 class="text-2xl font-bold mb-4 neon-text">Add Music for Vibe</h3>
+                    <form id="add-song-form" class="flex space-x-4">
+                        <input type="url" id="song-url" placeholder="Paste Song URL (e.g., YouTube embed)" class="flex-grow bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <button type="submit" class="neon-button py-3 px-6 rounded-lg font-semibold uppercase">Add Song</button>
+                    </form>
+                    <div id="song-message" class="mt-4 text-green-400"></div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Member Chatroom Page -->
+        <section id="chatroom" class="page-transition hidden-page min-h-screen flex items-center justify-center p-8">
+            <div id="chatroom-login" class="bg-gray-900 bg-opacity-70 p-8 rounded-xl shadow-2xl neon-border max-w-lg w-full text-center">
+                <h2 class="text-3xl font-bold neon-text mb-6">Chatroom Login</h2>
+                <form id="chatroom-login-form">
+                    <input type="password" id="chatroom-password" placeholder="Enter password" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                    <button type="submit" class="neon-button w-full py-3 rounded-lg font-semibold uppercase">Enter Chatroom</button>
+                </form>
+                <div id="chatroom-login-message" class="mt-4 text-red-400"></div>
+            </div>
+
+            <div id="chatroom-main" class="hidden bg-gray-900 bg-opacity-70 p-8 rounded-xl shadow-2xl neon-border flex flex-col h-[70vh] max-w-4xl w-full">
+                <h2 class="text-3xl font-bold neon-text mb-6 text-center">CHATROOM FOR OUR MEMBERS</h2>
+                <p id="user-id-display" class="text-xs text-center text-gray-400 mb-4"></p>
+                <div id="chatroom-messages" class="flex-grow overflow-y-auto mb-4 p-4 border border-gray-700 rounded-lg space-y-3">
+                    <!-- Messages will be loaded here -->
+                </div>
+                <form id="chatroom-form" class="flex">
+                    <input type="text" id="message-input" placeholder="Type your message..." class="flex-grow bg-gray-800 border border-gray-700 rounded-l-lg p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                    <button type="submit" class="neon-button px-6 rounded-r-lg font-semibold">Send</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Showcase Page -->
+        <section id="showcase" class="page-transition hidden-page min-h-screen p-8">
+            <div class="container mx-auto">
+                <h2 class="text-4xl md:text-5xl font-bold neon-text text-center mb-12">Our Showcase & Portfolio</h2>
+                <div id="showcase-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Dynamic showcase items will be rendered here -->
+                </div>
+            </div>
+        </section>
+        
+        <!-- Reviews Page -->
+        <section id="reviews" class="page-transition hidden-page min-h-screen p-8">
+            <div class="container mx-auto max-w-4xl">
+                <h2 class="text-4xl md:text-5xl font-bold neon-text text-center mb-12">Client Reviews & Feedback</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Placeholder Review Cards -->
+                    <div class="bg-gray-900 p-6 rounded-lg shadow-lg neon-border">
+                        <p class="italic text-gray-400 mb-4">"Working with TRENDMAX was a game-changer for our business. Their team's expertise in digital marketing helped us double our online conversions in just three months. Highly recommended!"</p>
+                        <p class="font-bold">- Alex Chen, Founder of Innovate Co.</p>
+                    </div>
+                    <div class="bg-gray-900 p-6 rounded-lg shadow-lg neon-border">
+                        <p class="italic text-gray-400 mb-4">"The neon theme perfectly captures their innovative spirit. The team is professional, responsive, and truly passionate about their work. We couldn't be happier with our new website."</p>
+                        <p class="font-bold">- Sarah Jones, CEO of Future Ventures</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Apply for Job Page -->
+        <section id="apply" class="page-transition hidden-page min-h-screen flex items-center justify-center p-8 text-center">
+            <div class="bg-gray-900 bg-opacity-70 p-8 rounded-xl shadow-2xl neon-border max-w-lg w-full">
+                <h2 class="text-3xl font-bold neon-text mb-6">Apply for Job</h2>
+                <form id="job-apply-form" class="space-y-6">
+                    <div>
+                        <label for="applicant-name" class="block mb-2">Your Name</label>
+                        <input type="text" id="applicant-name" name="name" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                    </div>
+                    <div>
+                        <label for="applicant-email" class="block mb-2">Your Email</label>
+                        <input type="email" id="applicant-email" name="email" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                    </div>
+                    <div>
+                        <label for="applicant-mobile" class="block mb-2">Mobile</label>
+                        <input type="tel" id="applicant-mobile" name="mobile" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                    </div>
+                    <div>
+                        <label for="applicant-message" class="block mb-2">Brief Message</label>
+                        <textarea id="applicant-message" name="message" rows="4" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required></textarea>
+                    </div>
+                    <button type="submit" class="neon-button w-full py-3 rounded-lg font-semibold uppercase">
+                        Apply via WhatsApp
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Make a Project Page -->
+        <section id="project" class="page-transition hidden-page min-h-screen flex items-center justify-center p-8">
+            <div class="bg-gray-900 bg-opacity-70 p-8 rounded-xl shadow-2xl neon-border max-w-lg w-full">
+                <h2 class="text-3xl font-bold neon-text mb-6 text-center">Make a Project Request</h2>
+                <form id="project-form" class="space-y-6">
+                    <div>
+                        <label for="p-name" class="block mb-2">Your Name</label>
+                        <input type="text" id="p-name" name="name" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                    </div>
+                    <div>
+                        <label for="p-email" class="block mb-2">Your Email</label>
+                        <input type="email" id="p-email" name="email" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                    </div>
+                    <div>
+                        <label for="p-service" class="block mb-2">Choose Service</label>
+                        <select id="p-service" name="service" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                            <option value="">Select a service...</option>
+                            <option value="Web Development">Web Development</option>
+                            <option value="UI/UX Design">UI/UX Design</option>
+                            <option value="Mobile App Development">Mobile App Development</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="p-details" class="block mb-2">Project Details</label>
+                        <textarea id="p-details" name="details" rows="4" class="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" required></textarea>
+                    </div>
+                    <button type="submit" class="neon-button w-full py-3 rounded-lg font-semibold uppercase">
+                        Request via WhatsApp
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Thank You Page -->
+        <section id="thank-you" class="page-transition hidden-page min-h-screen flex items-center justify-center p-8 text-center">
+            <div class="max-w-xl mx-auto">
+                <h1 class="text-5xl md:text-7xl font-bold neon-text mb-8 animate-pulse">Thanks for Visiting My Website</h1>
+                <button onclick="showPage('home')" class="neon-button px-8 py-4 rounded-full text-xl font-semibold uppercase">Return to Home</button>
+            </div>
+        </section>
+        
+        <!-- Modal for messages (replaces alert/confirm) -->
+        <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-[9999]">
+            <div class="bg-gray-900 p-8 rounded-xl neon-border max-w-sm w-full text-center">
+                <h3 id="modal-title" class="text-2xl font-bold neon-text mb-4"></h3>
+                <p id="modal-message" class="text-gray-300 mb-6"></p>
+                <button onclick="closeModal()" class="neon-button px-6 py-2 rounded-full uppercase font-semibold">OK</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Main JavaScript Logic -->
+    <script>
+        const pages = ['home', 'customer-details', 'experts', 'admin-panel', 'chatroom', 'showcase', 'reviews', 'apply', 'project', 'thank-you'];
+        let currentPage = 'home';
+        
+        // Modal functions
+        function showModal(title, message) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-message').textContent = message;
+            document.getElementById('modal').classList.remove('hidden');
+            document.getElementById('modal').classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+            document.getElementById('modal').classList.remove('flex');
+        }
+
+        // Page navigation logic
+        function showPage(pageId) {
+            if (pages.includes(pageId)) {
+                document.getElementById(currentPage).classList.remove('active-page');
+                document.getElementById(currentPage).classList.add('hidden-page');
+                
+                currentPage = pageId;
+
+                document.getElementById(currentPage).classList.remove('hidden-page');
+                document.getElementById(currentPage).classList.add('active-page');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                // Redirect to homepage if user navigates away from admin/chat
+                if (pageId !== 'admin-panel' && pageId !== 'chatroom') {
+                    if (!document.getElementById('admin-dashboard').classList.contains('hidden')) {
+                        document.getElementById('admin-dashboard').classList.add('hidden');
+                        document.getElementById('admin-login').classList.remove('hidden');
+                    }
+                    if (!document.getElementById('chatroom-main').classList.contains('hidden')) {
+                        document.getElementById('chatroom-main').classList.add('hidden');
+                        document.getElementById('chatroom-login').classList.remove('hidden');
+                    }
+                }
+            }
+        }
+        
+        // Mobile menu toggle
+        document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Form Submission Handlers
+        document.getElementById('customer-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            console.log("Customer Details Submitted:", data);
+            
+            showModal("Submission Successful!", "Your details have been successfully saved! This is a demo. In a real application, we would use a backend server to send a confirmation to you via email and WhatsApp.");
+        });
+
+        // Admin Panel Logic
+        document.getElementById('admin-login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const password = document.getElementById('admin-password').value;
+            const messageEl = document.getElementById('admin-login-message');
+            
+            if (password === 'TRENDMAXCEOPRINCE') {
+                document.getElementById('admin-login').classList.add('hidden');
+                document.getElementById('admin-dashboard').classList.remove('hidden');
+                messageEl.textContent = '';
+            } else {
+                messageEl.textContent = "Incorrect password.";
+            }
+        });
+        
+        // Admin Forms
+        document.getElementById('add-expert-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const expertData = Object.fromEntries(formData.entries());
+            window.addExpert(expertData);
+            e.target.reset();
+            showModal("Success", "New expert added!");
+        });
+        
+        document.getElementById('add-showcase-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const showcaseData = Object.fromEntries(formData.entries());
+            window.addShowcaseItem(showcaseData);
+            e.target.reset();
+            showModal("Success", "New showcase item added!");
+        });
+
+        document.getElementById('add-song-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const songUrl = document.getElementById('song-url').value;
+            const songMessageEl = document.getElementById('song-message');
+            songMessageEl.textContent = 'Loading song...';
+            
+            const audioPlayer = document.getElementById('audio-player');
+            if (audioPlayer) {
+                audioPlayer.src = songUrl;
+                audioPlayer.play().then(() => {
+                    songMessageEl.textContent = 'Song added and playing!';
+                }).catch(error => {
+                    console.error("Error playing audio:", error);
+                    songMessageEl.textContent = 'Error playing audio. Check the URL.';
+                });
+            } else {
+                const newAudio = document.createElement('audio');
+                newAudio.id = 'audio-player';
+                newAudio.src = songUrl;
+                newAudio.controls = true;
+                newAudio.loop = true;
+                newAudio.classList.add('mt-4', 'w-full');
+                document.getElementById('add-song-form').after(newAudio);
+                newAudio.play().then(() => {
+                    songMessageEl.textContent = 'Song added and playing!';
+                }).catch(error => {
+                    console.error("Error playing audio:", error);
+                    songMessageEl.textContent = 'Error playing audio. Check the URL.';
+                });
+            }
+        });
+
+        // Chatroom Logic
+        document.getElementById('chatroom-login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const password = document.getElementById('chatroom-password').value;
+            const messageEl = document.getElementById('chatroom-login-message');
+            
+            if (password === 'TRENDMAXMEMBERS') {
+                document.getElementById('chatroom-login').classList.add('hidden');
+                document.getElementById('chatroom-main').classList.remove('hidden');
+                messageEl.textContent = '';
+            } else {
+                messageEl.textContent = "Incorrect password.";
+            }
+        });
+
+        document.getElementById('chatroom-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const messageInput = document.getElementById('message-input');
+            const messageText = messageInput.value.trim();
+            if (messageText) {
+                window.sendMessage(messageText);
+                messageInput.value = '';
+            }
+        });
+        
+        // Logic for the job application form
+        document.getElementById('job-apply-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('applicant-name').value;
+            const email = document.getElementById('applicant-email').value;
+            const mobile = document.getElementById('applicant-mobile').value;
+            const message = document.getElementById('applicant-message').value;
+
+            // Construct the message text
+            const whatsappText = `Job Application via Website\n\nName: ${name}\nEmail: ${email}\nMobile: ${mobile}\n\nMessage:\n${message}`;
+
+            // URL-encode the message
+            const encodedText = encodeURIComponent(whatsappText);
+            const whatsappUrl = `https://wa.me/9137341138?text=${encodedText}`;
+
+            // Open the WhatsApp URL
+            window.open(whatsappUrl, '_blank');
+        });
+
+        // New logic for the project request form
+        document.getElementById('project-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('p-name').value;
+            const email = document.getElementById('p-email').value;
+            const service = document.getElementById('p-service').value;
+            const details = document.getElementById('p-details').value;
+
+            const whatsappText = `Project Request from TRENDMAX Website\n\nMy Name: ${name}\nMy Email: ${email}\nService Required: ${service}\n\nProject Details:\n${details}`;
+            const encodedText = encodeURIComponent(whatsappText);
+            const whatsappUrl = `https://wa.me/9137341138?text=${encodedText}`;
+            
+            window.open(whatsappUrl, '_blank');
+        });
+    </script>
+
+</body>
+</html>
